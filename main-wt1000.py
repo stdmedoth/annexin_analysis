@@ -11,7 +11,7 @@ from sklearn.decomposition import PCA
 warnings.filterwarnings("ignore", message="Unlikely unit cell vectors detected")
 
 
-traj = md.load('luis_felipe/samples.xtc', top='luis_felipe/samples_luisfelipe_10k_corealign.pdb')
+traj = md.load('1000_samples/samples.xtc', top='1000_samples/topology.pdb')
 traj.xyz = traj.xyz / 10.0
 
 ca_indices = traj.topology.select('name CA and resi 0 to 505')
@@ -22,7 +22,6 @@ traj_ca.superpose(traj_ca, 0, atom_indices=core_indices_in_slice)
 fluctuations = md.rmsf(traj_ca, traj_ca, 0)
 
 print(f"Mean RMSF: {fluctuations.mean()*10} Å")
-
 
 plt.figure(figsize=(10,5))
 #plt.plot(fluctuations, color="#2c3e50", linewidth=1.5)
