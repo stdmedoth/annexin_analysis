@@ -22,53 +22,66 @@ Conformational ensembles were generated using **BioEmu** (Biological Ensemble Mo
 - `pos`: Atomic coordinates (Cα positions)
 - `sequence`: Amino acid sequence
 
-### Directory Structure
+---
+
+## 📁 Project Structure
 
 ```
 protein_analysis/
 ├── README.md
-├── main.py                          # Main analysis script (RMSF calculation)
-├── helpers.py                       # Utility functions (NPZ to PDB conversion)
-├── pdbs/                            # Converted PDB files for analysis
-├── MutationConformationsBioEmu/
-│   ├── out_native/                  # Wild-type conformations
-│   │   ├── batch_*.npz              # Conformational ensembles
-│   │   ├── sequence.fasta           # WT sequence
-│   │   └── samples.xtc              # Trajectory file
-│   └── out_mutant_P36R/             # P36R mutant conformations
-│       ├── batch_*.npz              # Conformational ensembles
-│       └── sequence.fasta           # Mutant sequence
+├── annexin_analysis/              # Main analysis package
+│   ├── __init__.py               # Package exports
+│   ├── config.py                 # Configuration and constants
+│   ├── trajectory.py             # Trajectory loading and preprocessing
+│   ├── analysis.py               # RMSF, PCA, convergence analysis
+│   ├── contact_map.py            # Contact map computation
+│   ├── visualization.py          # Plotting functions
+│   └── utils.py                  # Utility classes (NPZ converter, etc.)
+│
+├── scripts/                       # Ready-to-run analysis scripts
+│   ├── analyze_wt_rmsf.py        # RMSF analysis for WT
+│   ├── analyze_wt_pca.py         # PCA analysis for WT
+│   ├── compare_rmsf_wt_mutant.py # RMSF comparison WT vs P36R
+│   ├── compare_pca_wt_mutant.py  # PCA comparison WT vs P36R
+│   ├── compare_contact_maps.py   # Contact map comparison
+│   ├── analyze_convergence.py    # Convergence analysis
+│   ├── analyze_local_pca.py      # Local/regional PCA analysis
+│   ├── align_trajectories.py     # Trajectory alignment utility
+│   ├── convert_npz_to_pdb.py     # NPZ to PDB converter
+│   └── run_full_analysis.py      # Complete analysis pipeline
+│
+├── results/                       # Output directory for figures
+│
+└── 1000_samples/                  # Trajectory data
+    └── MutationConformationsBioEmu/
+        ├── out_native/            # Wild-type conformations
+        │   ├── samples.xtc
+        │   └── topology.pdb
+        └── out_mutant_P36R/       # P36R mutant conformations
+            ├── samples.xtc
+            └── topology.pdb
 ```
 
 ---
 
 ## 🔬 Analysis Methods
 
-### Planned Analyses
-
-| Analysis | Description | Status |
+| Analysis | Description | Script |
 |----------|-------------|--------|
-| **RMSF** | Root Mean Square Fluctuation per residue | ✅ Implemented |
-| **RMSD** | Root Mean Square Deviation over conformations | 🔄 In progress |
-| **PCA** | Principal Component Analysis of conformational space | ⏳ Planned |
-| **Contact Maps** | Difference contact maps (WT vs Mutant) | ⏳ Planned |
-
-### Current Implementation
-
-1. **NPZ to PDB Conversion** (`helpers.py`)
-   - Converts BioEmu output to PDB format for visualization and analysis
-
-2. **RMSF Analysis** (`main.py`)
-   - Uses AlphaFold structure as reference (`AF-P50995-F1-model_v6.pdb`)
-   - Focuses on the Annexin core domain (residues 199-504)
-   - Generates conformational profile plots
+| **RMSF** | Root Mean Square Fluctuation per residue | `analyze_wt_rmsf.py` |
+| **PCA** | Principal Component Analysis of conformations | `analyze_wt_pca.py` |
+| **RMSF Comparison** | Compare flexibility between WT and mutant | `compare_rmsf_wt_mutant.py` |
+| **PCA Comparison** | Compare conformational space sampling | `compare_pca_wt_mutant.py` |
+| **Contact Maps** | Inter-residue distance analysis | `compare_contact_maps.py` |
+| **Convergence** | Assess ensemble sampling completeness | `analyze_convergence.py` |
+| **Local PCA** | Focused analysis on N-terminal region | `analyze_local_pca.py` |
 
 ---
 
 ## 🛠️ Dependencies
 
 ```bash
-pip install numpy mdtraj matplotlib
+pip install numpy mdtraj matplotlib seaborn scikit-learn scipy
 ```
 
 | Package | Purpose |
@@ -76,33 +89,117 @@ pip install numpy mdtraj matplotlib
 | `numpy` | Numerical computations, NPZ file handling |
 | `mdtraj` | Molecular dynamics trajectory analysis |
 | `matplotlib` | Visualization and plotting |
+| `seaborn` | Statistical data visualization |
+| `scikit-learn` | PCA and machine learning |
+| `scipy` | Scientific computing |
 
 ---
 
-## 🚀 Usage
+## 🚀 Quick Start
 
-### 1. Convert NPZ files to PDB
-
-```bash
-python helpers.py
-```
-
-### 2. Run RMSF Analysis
+### Running Individual Analyses
 
 ```bash
-python main.py
+# Navigate to the project directory
+cd protein_analysis
+
+# Run RMSF analysis for wild-type
+python scripts/analyze_wt_rmsf.py
+
+# Compare WT vs P36R mutant RMSF
+python scripts/compare_rmsf_wt_mutant.py
+
+# Compare PCA projections
+python scripts/compare_pca_wt_mutant.py
+
+# Compare contact maps
+python scripts/compare_contact_maps.py
 ```
 
-This will generate `conformational_profile.png` showing the RMSF per residue.
+### Running Complete Analysis Pipeline
+
+```bash
+python scripts/run_full_analysis.py
+```
+
+This runs all analyses and generates a summary report in `results/`.
 
 ---
 
-## 📊 Expected Outputs
+## 📦 Package Usage
 
-- **Conformational Profile Plot**: RMSF values (in Ångströms) plotted against residue number
-- **Comparative Analysis**: Side-by-side comparison of WT and mutant flexibility profiles
-- **PCA Projections**: Visualization of conformational sampling in reduced dimensions
-- **Difference Contact Maps**: Highlighting altered inter-residue interactions
+The `annexin_analysis` package can be imported for custom analyses:
+
+```python
+from annexin_analysis import (
+    AnnexinConfig,
+    TrajectoryLoader,
+    ConformationalAnalyzer,
+    ContactMapAnalyzer,
+    ConformationalVisualizer
+)
+
+# Initialize with default configuration
+config = AnnexinConfig()
+loader = TrajectoryLoader(config)
+analyzer = ConformationalAnalyzer(config)
+
+# Load and process wild-type
+wt = config.wt_variant
+processed = loader.process_variant(wt)
+
+# Compute RMSF
+rmsf_result = analyzer.compute_rmsf(processed)
+print(f"Mean RMSF: {rmsf_result.mean_rmsf:.4f} Å")
+
+# Visualize
+visualizer = ConformationalVisualizer(config)
+visualizer.plot_rmsf(rmsf_result, filename="my_rmsf_plot.png")
+```
+
+### Adding New Variants
+
+```python
+from annexin_analysis import AnnexinConfig
+
+config = AnnexinConfig()
+
+# Create a new variant configuration
+new_variant = config.create_variant(
+    name="g154r",
+    label="Mutant G154R",
+    folder="out_mutant_G154R",
+    color_index=2
+)
+```
+
+---
+
+## 🏗️ Architecture
+
+The package follows object-oriented design principles:
+
+### Core Classes
+
+| Class | Description |
+|-------|-------------|
+| `AnnexinConfig` | Centralized configuration for paths and parameters |
+| `TrajectoryLoader` | Load, preprocess, and align MD trajectories |
+| `ConformationalAnalyzer` | RMSF, PCA, and convergence analysis |
+| `ComparativeAnalyzer` | Compare multiple variants |
+| `ContactMapAnalyzer` | Contact map computation and comparison |
+| `ConformationalVisualizer` | Publication-ready plotting |
+
+### Data Classes
+
+| Class | Description |
+|-------|-------------|
+| `ProcessedTrajectory` | Container for processed trajectory data |
+| `RMSFResult` | RMSF analysis results |
+| `PCAResult` | PCA analysis results with fitted model |
+| `ConvergenceResult` | Convergence analysis results |
+| `ContactMapResult` | Contact map data |
+| `ContactComparisonResult` | Contact comparison data |
 
 ---
 
@@ -122,6 +219,16 @@ This will generate `conformational_profile.png` showing the RMSF per residue.
 
 ---
 
+## 📊 Key Findings
+
+The analysis demonstrates that the P36R mutation affects the conformational space of Annexin A11:
+
+1. **RMSF Changes**: Altered flexibility profile in the N-terminal region
+2. **PCA Shifts**: Different conformational sampling patterns
+3. **Contact Changes**: Modified inter-residue interactions
+
+---
+
 ## 📚 References
 
 1. AlphaFold Protein Structure Database - [https://alphafold.ebi.ac.uk/](https://alphafold.ebi.ac.uk/)
@@ -132,7 +239,7 @@ This will generate `conformational_profile.png` showing the RMSF per residue.
 
 ## 👨‍🔬 Author
 
-**Undergraduate Research Student**  
+**Calistu** - Undergraduate Research  
 University of São Paulo (USP)  
 7th Semester - Scientific Initiation (IC) Project
 

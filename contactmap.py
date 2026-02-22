@@ -18,7 +18,6 @@ topology_path = f'{base}/out_native/core_aligned_topology.pdb'
 xtc_mutation_path = f'{base}/out_mutant_P36R/core_aligned_samples.xtc'
 topology_mutation_path = f'{base}/out_mutant_P36R/core_aligned_topology.pdb'
 
-
 wt_traj = md.load(xtc_path, top=topology_path)
 mut_traj = md.load(xtc_mutation_path, top=topology_mutation_path)
 
@@ -42,7 +41,7 @@ print(f"Total de contatos Mutada: {np.sum(mut_contact_map)}")
 diff_map = wt_contact_map.astype(int) - wt_contact_map.astype(int)
 
 plt.figure(figsize=(10, 8))
-sns.heatmap(diff_map, cmap='RdBu_r', center=0, cbar=True)
+sns.heatmap(wt_contact_map, cmap='RdBu_r', center=0, cbar=True)
 
 plt.title('Contact Map Comparisson - Annexin A11 WT vs P36R')
 plt.savefig('contact_map_WT_P36R_1000samples.png')

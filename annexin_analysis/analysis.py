@@ -1,0 +1,452 @@
+"""
+Conformational analysis module.
+
+Provides classes for analyzing protein conformational dynamics including:
+- RMSF (Root Mean Square Fluctuation) analysis
+- PCA (Principal Component Analysis)
+- Convergence analysis
+"""
+
+from dataclasses import dataclass, field
+from typing import Dict, List, Optional, Tuple
+import numpy as np
+import mdtraj as md
+from sklearn.decomposition import PCA
+
+from .config import AnnexinConfig, VariantConfig, DEFAULT_CONFIG
+from .trajectory import ProcessedTrajectory, TrajectoryLoader
+
+
+@dataclass
+class RMSFResult:
+    """
+    Container for RMSF analysis results.
+    
+    Attributes:
+        fluctuations: RMSF values per residue (in Angstroms).
+        residue_numbers: Array of residue indices.
+        mean_rmsf: Mean RMSF across all residues.
+        variant_name: Name of the protein variant.
+    """
+    
+    fluctuations: np.ndarray
+    residue_numbers: np.ndarray
+    mean_rmsf: float
+    variant_name: str
+    
+    def __post_init__(self):
+        """Ensure residue numbers array exists."""
+        if self.residue_numbers is None:
+            self.residue_numbers = np.arange(len(self.fluctuations))
+
+
+@dataclass
+class PCAResult:
+    """
+    Container for PCA analysis results.
+    
+    Attributes:
+        reduced_coords: Projected coordinates in PC space.
+        explained_variance_ratio: Variance explained by each PC.
+        pca_model: Fitted PCA model (for projecting other data).
+        n_frames: Number of frames analyzed.
+        variant_name: Name of the protein variant.
+    """
+    
+    reduced_coords: np.ndarray
+    explained_variance_ratio: np.ndarray
+    pca_model: PCA
+    n_frames: int
+    variant_name: str
+    
+    @property
+    def total_variance_explained(self) -> float:
+        """Returns total variance explained by all components."""
+        return self.explained_variance_ratio.sum() * 100
+    
+    @property
+    def pc1_variance(self) -> float:
+        """Returns variance explained by PC1 (percentage)."""
+        return self.explained_variance_ratio[0] * 100
+    
+    @property
+    def pc2_variance(self) -> float:
+        """Returns variance explained by PC2 (percentage)."""
+        return self.explained_variance_ratio[1] * 100
+
+
+@dataclass
+class ConvergenceResult:
+    """
+    Container for convergence analysis results.
+    
+    Attributes:
+        sample_sizes: Array of sample sizes tested.
+        differences: RMSF differences at each sample size.
+        final_rmsf: Reference RMSF from full ensemble.
+        is_converged: Whether the analysis has converged.
+    """
+    
+    sample_sizes: np.ndarray
+    differences: np.ndarray
+    final_rmsf: np.ndarray
+    is_converged: bool = False
+    convergence_threshold: float = 0.01
+
+
+class ConformationalAnalyzer:
+    """
+    Main class for conformational space analysis.
+    
+    Provides methods for RMSF calculation, PCA analysis, and
+    convergence assessment of molecular dynamics ensembles.
+    
+    Attributes:
+        config: Configuration object with analysis parameters.
+        loader: TrajectoryLoader for data loading.
+    """
+    
+    def __init__(self, config: Optional[AnnexinConfig] = None):
+        """
+        Initialize the ConformationalAnalyzer.
+        
+        Args:
+            config: Configuration object. Uses DEFAULT_CONFIG if not provided.
+        """
+        self.config = config or DEFAULT_CONFIG
+        self.loader = TrajectoryLoader(self.config)
+    
+    def compute_rmsf(
+        self,
+        processed: ProcessedTrajectory,
+        reference_frame: int = 0,
+        to_angstroms: bool = True
+    ) -> RMSFResult:
+        """
+        Compute RMSF for a processed trajectory.
+        
+        Args:
+            processed: ProcessedTrajectory object.
+            reference_frame: Frame to use as reference.
+            to_angstroms: If True, convert result to Angstroms.
+            
+        Returns:
+            RMSFResult containing fluctuation data.
+        """
+        traj = processed.trajectory
+        
+        fluctuations = md.rmsf(traj, traj, reference_frame)
+        
+        if to_angstroms:
+            fluctuations = fluctuations * self.config.angstrom_to_nm
+        
+        residue_numbers = np.arange(len(fluctuations))
+        mean_rmsf = float(np.mean(fluctuations))
+        
+        variant_name = ""
+        if processed.variant_config:
+            variant_name = processed.variant_config.name
+        
+        return RMSFResult(
+            fluctuations=fluctuations,
+            residue_numbers=residue_numbers,
+            mean_rmsf=mean_rmsf,
+            variant_name=variant_name
+        )
+    
+    def compute_rmsf_vs_reference(
+        self,
+        processed: ProcessedTrajectory,
+        reference: md.Trajectory,
+        to_angstroms: bool = True
+    ) -> RMSFResult:
+        """
+        Compute RMSF against an external reference structure.
+        
+        Args:
+            processed: ProcessedTrajectory object.
+            reference: Reference trajectory (e.g., AlphaFold model).
+            to_angstroms: If True, convert result to Angstroms.
+            
+        Returns:
+            RMSFResult containing fluctuation data.
+        """
+        traj = processed.trajectory
+        
+        fluctuations = md.rmsf(traj, reference)
+        
+        if to_angstroms:
+            fluctuations = fluctuations * self.config.angstrom_to_nm
+        
+        residue_numbers = np.arange(len(fluctuations))
+        mean_rmsf = float(np.mean(fluctuations))
+        
+        variant_name = ""
+        if processed.variant_config:
+            variant_name = processed.variant_config.name
+        
+        return RMSFResult(
+            fluctuations=fluctuations,
+            residue_numbers=residue_numbers,
+            mean_rmsf=mean_rmsf,
+            variant_name=variant_name
+        )
+    
+    def compute_pca(
+        self,
+        processed: ProcessedTrajectory,
+        n_components: Optional[int] = None
+    ) -> PCAResult:
+        """
+        Perform PCA on trajectory coordinates.
+        
+        Args:
+            processed: ProcessedTrajectory object.
+            n_components: Number of PCs to compute. Uses config default if None.
+            
+        Returns:
+            PCAResult containing reduced coordinates and PCA model.
+        """
+        if n_components is None:
+            n_components = self.config.pca_components
+        
+        pca = PCA(n_components=n_components)
+        reduced_coords = pca.fit_transform(processed.coordinates_flat)
+        
+        variant_name = ""
+        if processed.variant_config:
+            variant_name = processed.variant_config.name
+        
+        return PCAResult(
+            reduced_coords=reduced_coords,
+            explained_variance_ratio=pca.explained_variance_ratio_,
+            pca_model=pca,
+            n_frames=processed.n_frames,
+            variant_name=variant_name
+        )
+    
+    def project_to_pca_space(
+        self,
+        processed: ProcessedTrajectory,
+        pca_result: PCAResult
+    ) -> PCAResult:
+        """
+        Project trajectory onto existing PCA space.
+        
+        Useful for comparing mutants projected onto WT PCA space.
+        
+        Args:
+            processed: ProcessedTrajectory to project.
+            pca_result: Existing PCAResult with fitted model.
+            
+        Returns:
+            PCAResult with projected coordinates.
+        """
+        reduced_coords = pca_result.pca_model.transform(processed.coordinates_flat)
+        
+        variant_name = ""
+        if processed.variant_config:
+            variant_name = processed.variant_config.name
+        
+        return PCAResult(
+            reduced_coords=reduced_coords,
+            explained_variance_ratio=pca_result.explained_variance_ratio,
+            pca_model=pca_result.pca_model,
+            n_frames=processed.n_frames,
+            variant_name=variant_name
+        )
+    
+    def analyze_convergence(
+        self,
+        processed: ProcessedTrajectory,
+        step: Optional[int] = None,
+        max_samples: Optional[int] = None
+    ) -> ConvergenceResult:
+        """
+        Analyze RMSF convergence as function of sample size.
+        
+        Tests whether the ensemble has converged by computing RMSF
+        profiles for increasing subsets of samples and comparing
+        to the final (full ensemble) profile.
+        
+        Args:
+            processed: ProcessedTrajectory object.
+            step: Step size for sample sizes. Uses config default if None.
+            max_samples: Maximum samples to test. Uses all if None.
+            
+        Returns:
+            ConvergenceResult with convergence data.
+        """
+        if step is None:
+            step = self.config.convergence_step
+        
+        if max_samples is None:
+            max_samples = min(processed.n_frames, self.config.convergence_max_samples)
+        
+        # Compute reference RMSF from full ensemble
+        final_rmsf = md.rmsf(processed.trajectory, processed.trajectory, 0)
+        
+        # Test different sample sizes
+        sample_sizes = list(range(step, max_samples + 1, step))
+        differences = []
+        
+        for n in sample_sizes:
+            sub_processed = processed.get_frame_slice(0, n)
+            
+            # Re-align the subset
+            core_indices = sub_processed.trajectory.topology.select(
+                self.config.regions.core_selection
+            )
+            sub_processed.trajectory.superpose(
+                sub_processed.trajectory, 0, atom_indices=core_indices
+            )
+            
+            current_rmsf = md.rmsf(
+                sub_processed.trajectory, sub_processed.trajectory, 0
+            )
+            
+            # Calculate L2 norm of difference
+            diff_norm = np.linalg.norm(current_rmsf - final_rmsf)
+            differences.append(diff_norm)
+        
+        # Check if converged (last few points stable)
+        differences_array = np.array(differences)
+        is_converged = False
+        if len(differences) >= 5:
+            last_five_std = np.std(differences_array[-5:])
+            is_converged = last_five_std < 0.01
+        
+        return ConvergenceResult(
+            sample_sizes=np.array(sample_sizes),
+            differences=differences_array,
+            final_rmsf=final_rmsf,
+            is_converged=is_converged
+        )
+    
+    def count_unique_structures(
+        self,
+        processed: ProcessedTrajectory,
+        decimal_precision: int = 4
+    ) -> int:
+        """
+        Count number of unique structures in the ensemble.
+        
+        Args:
+            processed: ProcessedTrajectory object.
+            decimal_precision: Decimal places for rounding coordinates.
+            
+        Returns:
+            Number of unique structures.
+        """
+        unique_frames = np.unique(
+            processed.coordinates_flat.round(decimals=decimal_precision),
+            axis=0
+        )
+        return len(unique_frames)
+    
+    def compute_frame_distance(
+        self,
+        processed: ProcessedTrajectory,
+        frame_i: int,
+        frame_j: int
+    ) -> float:
+        """
+        Compute distance between two frames.
+        
+        Args:
+            processed: ProcessedTrajectory object.
+            frame_i: First frame index.
+            frame_j: Second frame index.
+            
+        Returns:
+            Euclidean distance between frames in coordinate space.
+        """
+        coords = processed.coordinates_flat
+        return float(np.linalg.norm(coords[frame_i] - coords[frame_j]))
+
+
+class ComparativeAnalyzer:
+    """
+    Class for comparative analysis between protein variants.
+    
+    Provides methods to compare conformational spaces of
+    wild-type and mutant proteins.
+    """
+    
+    def __init__(self, config: Optional[AnnexinConfig] = None):
+        """
+        Initialize the ComparativeAnalyzer.
+        
+        Args:
+            config: Configuration object. Uses DEFAULT_CONFIG if not provided.
+        """
+        self.config = config or DEFAULT_CONFIG
+        self.loader = TrajectoryLoader(self.config)
+        self.analyzer = ConformationalAnalyzer(self.config)
+    
+    def compare_rmsf(
+        self,
+        variants: List[VariantConfig]
+    ) -> Dict[str, RMSFResult]:
+        """
+        Compute and compare RMSF profiles for multiple variants.
+        
+        Args:
+            variants: List of variant configurations to compare.
+            
+        Returns:
+            Dictionary mapping variant names to RMSFResult objects.
+        """
+        results = {}
+        
+        for variant in variants:
+            try:
+                processed = self.loader.process_variant(variant)
+                rmsf_result = self.analyzer.compute_rmsf(processed)
+                results[variant.name] = rmsf_result
+                print(f"Processed {variant.label}: Mean RMSF = {rmsf_result.mean_rmsf:.4f} Å")
+            except Exception as e:
+                print(f"Error processing {variant.label}: {e}")
+        
+        return results
+    
+    def compare_pca(
+        self,
+        wt_variant: VariantConfig,
+        mutant_variants: List[VariantConfig]
+    ) -> Tuple[PCAResult, Dict[str, PCAResult]]:
+        """
+        Compare PCA projections of mutants onto WT space.
+        
+        The WT is used to train the PCA, then mutants are projected
+        onto the same space for fair comparison.
+        
+        Args:
+            wt_variant: Wild-type variant configuration.
+            mutant_variants: List of mutant variant configurations.
+            
+        Returns:
+            Tuple of (wt_pca_result, dict of mutant_name -> PCAResult).
+        """
+        # Process WT and train PCA
+        wt_processed = self.loader.process_variant(wt_variant)
+        wt_pca = self.analyzer.compute_pca(wt_processed)
+        
+        print(f"WT PCA - Total variance explained: {wt_pca.total_variance_explained:.2f}%")
+        
+        # Project mutants onto WT space
+        mutant_results = {}
+        
+        for variant in mutant_variants:
+            try:
+                mutant_processed = self.loader.process_variant(
+                    variant,
+                    reference_trajectory=wt_processed.trajectory
+                )
+                mutant_pca = self.analyzer.project_to_pca_space(mutant_processed, wt_pca)
+                mutant_results[variant.name] = mutant_pca
+                print(f"Projected {variant.label} onto WT PCA space")
+            except Exception as e:
+                print(f"Error processing {variant.label}: {e}")
+        
+        return wt_pca, mutant_results
