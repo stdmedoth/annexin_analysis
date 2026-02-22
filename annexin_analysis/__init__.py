@@ -13,12 +13,12 @@ This package provides object-oriented tools for:
 - Publication-ready visualizations
 """
 
-from .config import AnnexinConfig, ProteinRegions
-from .trajectory import TrajectoryLoader
-from .analysis import ConformationalAnalyzer
-from .contact_map import ContactMapAnalyzer
+from .config import AnnexinConfig, ProteinRegions, VariantConfig
+from .trajectory import TrajectoryLoader, ProcessedTrajectory
+from .analysis import ConformationalAnalyzer, RMSFResult, PCAResult, ConvergenceResult
+from .contact_map import ContactMapAnalyzer, ContactMapResult, ContactComparisonResult
 from .visualization import ConformationalVisualizer
-from .utils import AminoAcidConverter, NPZConverter
+from .utils import AminoAcidConverter, NPZConverter, TrajectoryFilter
 
 __version__ = "1.0.0"
 __author__ = "Calistu"
@@ -26,10 +26,18 @@ __author__ = "Calistu"
 __all__ = [
     "AnnexinConfig",
     "ProteinRegions",
+    "VariantConfig",
     "TrajectoryLoader",
+    "ProcessedTrajectory",
     "ConformationalAnalyzer",
+    "RMSFResult",
+    "PCAResult",
+    "ConvergenceResult",
     "ContactMapAnalyzer",
+    "ContactMapResult",
+    "ContactComparisonResult",
     "ConformationalVisualizer",
     "AminoAcidConverter",
     "NPZConverter",
+    "TrajectoryFilter",
 ]

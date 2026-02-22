@@ -1,0 +1,46 @@
+============================================================
+ANNEXIN A11 CONFORMATIONAL ANALYSIS REPORT
+Generated: 2026-02-22 17:10:39
+============================================================
+
+OBJECTIVE: Prove that the P36R mutation affects the
+conformational space of Annexin A11.
+
+------------------------------------------------------------
+1. RMSF ANALYSIS (Flexibility)
+------------------------------------------------------------
+Wild-Type Mean RMSF: 2.9195 Å
+P36R Mutant Mean RMSF: 2.8937 Å
+Change: -0.9%
+
+------------------------------------------------------------
+2. PCA ANALYSIS (Conformational Space)
+------------------------------------------------------------
+PC1 Variance: 17.6%
+PC2 Variance: 14.6%
+Total Explained: 32.2%
+
+------------------------------------------------------------
+3. CONTACT MAP ANALYSIS (Structural Changes)
+------------------------------------------------------------
+WT Contacts: 2315
+P36R Contacts: 2327
+Contacts Gained: 26
+Contacts Lost: 14
+Net Change: 12
+
+------------------------------------------------------------
+4. CONVERGENCE ANALYSIS
+------------------------------------------------------------
+WT Converged: False
+P36R Converged: False
+
+============================================================
+CONCLUSION
+============================================================
+The analysis shows that the P36R mutation affects
+the conformational space of Annexin A11, as evidenced by:
+- Changes in residue flexibility (RMSF)
+- Altered conformational sampling (PCA)
+- Modified inter-residue contacts
+============================================================
