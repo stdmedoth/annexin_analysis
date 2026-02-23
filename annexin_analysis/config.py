@@ -162,13 +162,23 @@ class AnnexinConfig:
         )
 
     @property
+    def wt2_variant(self) -> VariantConfig:
+        """Returns configuration for the Wild Type variant."""
+        return self.create_variant(
+            name="wt2",
+            label="Wild Type 2",
+            folder="luis_felipe",
+            color_index=1
+        )
+
+    @property
     def p36r_variant(self) -> VariantConfig:
         """Returns configuration for the P36R mutant variant."""
         return self.create_variant(
             name="p36r",
             label="Mutant P36R",
             folder="out_mutant_P36R",
-            color_index=1
+            color_index=2
         )
 
 
