@@ -13,9 +13,10 @@ from typing import Dict, List, Optional, Tuple, Union
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
+import matplotlib.colors as mcolors
 import seaborn as sns
 from .config import AnnexinConfig, ProteinRegions, DEFAULT_CONFIG
-from .analysis import RMSFResult, PCAResult, ConvergenceResult
+from .analysis import RMSFResult, PCAResult, ConvergenceResult, DSSPResult
 from .contact_map import ContactMapResult, ContactComparisonResult
 
 
@@ -535,6 +536,89 @@ class ConformationalVisualizer:
         if filename:
             self._save_figure(fig, filename)
 
+        if show:
+            plt.show()
+
+        return fig
+
+    def plot_dssp(
+        self,
+        dssp_result: DSSPResult,
+        title: str = "Análise de Estrutura Secundária",
+        filename=None,
+        show=True
+    ):
+
+        data = dssp_result.raw_matrix
+
+        # 3. Mapeamento categórico rigoroso
+        # 0: Coil, 1: Helix (H, G, I), 2: Strand (E, B)
+        numeric_map = np.zeros(data.shape)
+        numeric_map[np.isin(data, ['H', 'G', 'I'])] = 1
+        numeric_map[np.isin(data, ['E', 'B'])] = 2
+
+        fig, ax = plt.subplots(figsize=(12, 7))
+
+        # Cores discretas: Branco (Coil), Azul (Hélice), Vermelho (Strand)
+        cmap = mcolors.ListedColormap(['white', '#3498db', '#e74c3c'])
+        bounds = [0, 0.5, 1.5, 2.5]
+        norm = mcolors.BoundaryNorm(bounds, cmap.N)
+
+        sns.heatmap(numeric_map.T, cmap=cmap, norm=norm, ax=ax, cbar_kws={
+            'ticks': [0, 1, 2],
+            'label': 'Structure'
+        })
+
+        # Ajustar labels do Colorbar
+        cbar = ax.collections[0].colorbar
+        cbar.set_ticklabels(['Coil/Turn', 'Helix', 'Strand'])
+
+        ax.set_xlabel('Frames', fontsize=12)
+        ax.set_ylabel('Residue ID', fontsize=12)
+        ax.set_title(f"{title} - {dssp_result.variant_name}", fontsize=14)
+
+        if filename:
+            self._save_figure(fig, filename)
+        if show:
+            plt.show()
+        return fig
+
+
+    def plot_dssp_profile_comparison(
+        self,
+        wt_result: DSSPResult,
+        mut_result: DSSPResult,
+        structure_type='Helix_%',
+        title: str = "DSSP Profile Comparisson",
+        filename: Optional[str] = None,
+        show: bool = True
+    ) -> plt.Figure:
+        """
+        Compair a probability of a specific strucure between WT and Mutant.
+        structure_type: 'Helix_%', 'Strand_%' ou 'Coil_%'
+        """
+
+        res_ids = np.array(list(wt_result.percentages.keys()))
+        wt_vals = np.array([v[structure_type] for v in wt_result.percentages.values()])
+        mut_vals = np.array([v[structure_type] for v in mut_result.percentages.values()])
+
+        fig, ax = plt.subplots(figsize=(12, 7))
+
+        ax.plot(res_ids, wt_vals, label='WT', color='blue', alpha=0.6)
+        ax.plot(res_ids, mut_vals, label=mut_result.variant_name, color='red', alpha=0.6)
+
+        # Destacar a região da mutação (ex: resíduo 36)
+        ax.axvline(x=36, color='black', linestyle='--', label='Mutation Site')
+
+        ax.set_ylabel(f'{structure_type} Occupation')
+        ax.set_xlabel('Residue ID')
+        ax.legend()
+
+        ax.set_title(f"{title} - WT vs {mut_result.variant_name}", fontsize=14)
+
+
+        if filename:
+            self._save_figure(fig, filename)
         if show:
             plt.show()
 

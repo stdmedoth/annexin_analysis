@@ -10,12 +10,26 @@ Provides classes for analyzing protein conformational dynamics including:
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 import numpy as np
+import pandas as pd
 import mdtraj as md
 from sklearn.decomposition import PCA
 
 from .config import AnnexinConfig, VariantConfig, DEFAULT_CONFIG
 from .trajectory import ProcessedTrajectory, TrajectoryLoader
 
+@dataclass
+class DSSPResult:
+    """
+    Container for DSSP analysis
+
+    Attributes:
+        raw_matrix: The matrix with DSSP values,
+        percentages: A dict with the percentages of secondaries structures,
+        variant_name: str
+    """
+    raw_matrix: np.ndarray
+    percentages: dict
+    variant_name: str
 
 @dataclass
 class RMSFResult:
@@ -92,6 +106,7 @@ class ConvergenceResult:
     final_rmsf: np.ndarray
     is_converged: bool = False
     convergence_threshold: float = 0.01
+
 
 
 class ConformationalAnalyzer:
@@ -378,7 +393,6 @@ class ConformationalAnalyzer:
 
         return mean_rg
 
-
     def compute_frame_distance(
         self,
         processed: ProcessedTrajectory,
@@ -398,6 +412,44 @@ class ConformationalAnalyzer:
         """
         coords = processed.coordinates_flat
         return float(np.linalg.norm(coords[frame_i] - coords[frame_j]))
+
+
+
+    def compute_dssp(
+        self,
+        processed: ProcessedTrajectory
+    ) -> DSSPResult:
+        traj = processed.trajectory
+        variant_name = processed.variant_config.name if processed.variant_config else ""
+
+        # 1. Computar DSSP (8 estados)
+        dssp_data = md.compute_dssp(traj, simplified=False)
+
+        # Pegar os IDs reais dos resíduos da topologia
+        residue_ids = np.array([res.resSeq for res in traj.topology.residues])
+
+        # 2. Cálculo Vetorizado de Porcentagens (Muito mais rápido)
+        # Agrupamos por classes físicas:
+        is_helix = np.isin(dssp_data, ['H', 'G', 'I'])
+        is_strand = np.isin(dssp_data, ['E', 'B'])
+        is_coil = ~is_helix & ~is_strand & (dssp_data != 'NA')
+
+        # Médias temporais por resíduo (axis 0 é o tempo)
+        stats = {
+            res_id: {
+                'Helix_%': np.mean(is_helix[:, i]) * 100,
+                'Strand_%': np.mean(is_strand[:, i]) * 100,
+                'Coil_%': np.mean(is_coil[:, i]) * 100
+            }
+            for i, res_id in enumerate(residue_ids)
+        }
+
+        return DSSPResult(
+            raw_matrix=dssp_data,
+            percentages=stats,
+            variant_name=variant_name
+        )
+
 
 
 class ComparativeAnalyzer:
@@ -485,3 +537,7 @@ class ComparativeAnalyzer:
                 print(f"Error processing {variant.label}: {e}")
 
         return wt_pca, mutant_results
+
+
+
+    
