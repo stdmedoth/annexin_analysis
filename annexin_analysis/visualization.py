@@ -614,7 +614,7 @@ class ConformationalVisualizer:
         ax.set_xlabel('Residue ID')
         ax.legend()
 
-        ax.set_title(f"{title} - WT vs {mut_result.variant_name}", fontsize=14)
+        ax.set_title(f"{structure_type.replace('_%', '')} {title} - WT vs {mut_result.variant_name} - Residue {res_ids[0]} to {res_ids[-1]}", fontsize=14)
 
 
         if filename:

@@ -418,6 +418,7 @@ class ConformationalAnalyzer:
     def compute_dssp(
         self,
         processed: ProcessedTrajectory
+
     ) -> DSSPResult:
         traj = processed.trajectory
         variant_name = processed.variant_config.name if processed.variant_config else ""
@@ -537,7 +538,3 @@ class ComparativeAnalyzer:
                 print(f"Error processing {variant.label}: {e}")
 
         return wt_pca, mutant_results
-
-
-
-    
