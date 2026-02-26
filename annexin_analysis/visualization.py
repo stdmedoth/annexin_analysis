@@ -544,7 +544,7 @@ class ConformationalVisualizer:
     def plot_dssp(
         self,
         dssp_result: DSSPResult,
-        title: str = "Análise de Estrutura Secundária",
+        title: str = "Secondary Structures Analysis",
         filename=None,
         show=True
     ):
@@ -581,6 +581,45 @@ class ConformationalVisualizer:
             self._save_figure(fig, filename)
         if show:
             plt.show()
+        return fig
+    
+
+    def plot_core_idr_mean_distances(
+        self,
+        distances: np.ndarray,
+        title: str = "Mean Distances between IDR Residues to CORE",
+        filename: Optional[str] = None,
+        show: bool = True
+    ) -> plt.Figure:
+        """
+        Plot the mean distance of each IDR residue to the exposed core surface.
+        """
+        fig, ax = plt.subplots(figsize=(10, 5))
+
+        # Cria o eixo X baseado nos índices dos resíduos do IDR
+        res_indices = np.arange(
+            self.regions.N_TERMINAL_START,
+            self.regions.N_TERMINAL_START + len(distances)
+        )
+
+        ax.plot(res_indices, distances, color='#2c3e50', linewidth=2)
+        ax.fill_between(res_indices, distances, alpha=0.2, color='#2c3e50')
+
+        ax.set_xlabel('IDR Residue Index', fontsize=12)
+        ax.set_ylabel(r'Mean Distance to Core ($nm$)', fontsize=12)
+        ax.set_title(title, fontsize=14)
+        ax.grid(True, linestyle="--", alpha=0.6)
+        
+        # Limita o eixo X exatamente à região do N-terminal
+        ax.set_xlim(self.regions.N_TERMINAL_START, self.regions.N_TERMINAL_END)
+
+        plt.tight_layout()
+
+        if filename:
+            self._save_figure(fig, filename)
+        if show:
+            plt.show()
+
         return fig
 
 
@@ -623,3 +662,7 @@ class ConformationalVisualizer:
             plt.show()
 
         return fig
+    
+
+
+

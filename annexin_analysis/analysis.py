@@ -17,6 +17,7 @@ from sklearn.decomposition import PCA
 from .config import AnnexinConfig, VariantConfig, DEFAULT_CONFIG
 from .trajectory import ProcessedTrajectory, TrajectoryLoader
 
+
 @dataclass
 class DSSPResult:
     """
@@ -25,7 +26,7 @@ class DSSPResult:
     Attributes:
         raw_matrix: The matrix with DSSP values,
         percentages: A dict with the percentages of secondaries structures,
-        variant_name: str
+        variant_name: Variant Name
     """
     raw_matrix: np.ndarray
     percentages: dict
@@ -450,6 +451,78 @@ class ConformationalAnalyzer:
             percentages=stats,
             variant_name=variant_name
         )
+
+    def compute_exposed_residues(
+        self,
+        processed: ProcessedTrajectory
+    ) -> np.array:
+        """
+        Calculate the exposed residues for an trajectory
+
+        Args:
+            processed: ProcessedTrajectory object.
+
+        Returns:
+            An np array
+        """
+
+        threshold = 0.2
+        traj = processed.trajectory
+
+        core_indices = traj.topology.select(f'resi {self.config.regions.CORE_START} to {self.config.regions.CORE_END}')
+        core_traj = traj.atom_slice(core_indices)
+
+
+        sasa_per_res = md.shrake_rupley(core_traj, mode='residue')
+        avg_sasa = np.mean(sasa_per_res, axis=0)
+
+        exposed_local_idx = np.where(avg_sasa > threshold)[0]
+        exposed_res_seqs = [core_traj.topology.residue(i).resSeq for i in exposed_local_idx]
+
+        exposed_ca_indices = traj.topology.select(f"name CA and resSeq " + " ".join(map(str, exposed_res_seqs)))
+
+        return exposed_ca_indices
+
+    
+
+    def compute_idr_to_core_mean_distance(
+        self,
+        processed: ProcessedTrajectory,
+        exposed_ca_indices: np.array
+    ) -> np.array:
+        """
+        Computation of the mean distances between the exposed from CORE carbons and the IDR residue
+
+        Args:
+            processed: ProcessedTrajectory object.
+            exposed_ca_indices: and np.array with the ca indices of the exposed core
+
+        Returns:
+            An np.array with the distances
+        """
+
+        traj = processed.trajectory
+
+        idr_ca_indices = md.select('name CA and resi {self.config.regions.N_TERMINAL_START} to {self.config.regions.N_TERMINAL_END}')
+        
+
+        # create the pairs [(idr_ca_indices, exposed_ca_indices)]
+        pairs = np.array([[i,j] for i in idr_ca_indices for j in exposed_ca_indices])
+        distances = md.compute_distances(traj, pairs)
+        mean_dist_pair = np.mean(distances, axis=0)
+
+        reshape_dist = mean_dist_pair.reshape((len(idr_ca_indices), len(exposed_ca_indices)))
+        
+        # axis = 0 : vertical
+        # axis = 1 : horizontal
+        # axis = 1 because we want to colapse the core and know about the IDR
+        avg_dist_to_surface = np.mean(reshape_dist, axis=1)
+
+        return avg_dist_to_surface
+
+
+        
+
 
 
 

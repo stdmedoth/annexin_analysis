@@ -3,4 +3,5 @@ pdbs
 MutationConformationsBioEmu
 test_pymol
 1000_samples
+2000_samples
 annexin_analysis/__pycache__
