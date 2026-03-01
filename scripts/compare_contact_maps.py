@@ -50,12 +50,12 @@ def main():
     # Perform full comparison
     comparison = contact_analyzer.analyze_variants(wt, p36r)
     
-    # Visualize
-    print("\nGenerating comparison plot...")
+    # Visualize - generates two separate images
+    print("\nGenerating comparison plots...")
     visualizer.plot_contact_comparison(
         comparison,
         mutation_position=36,  # P36R mutation at position 36
-        title="Contact Map Comparison: Wild-Type vs P36R - Annexin A11",
+        title="Wild-Type vs P36R - Annexin A11",
         filename="contact_map_comparison_wt_p36r.png"
     )
     

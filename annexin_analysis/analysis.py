@@ -452,37 +452,49 @@ class ConformationalAnalyzer:
             variant_name=variant_name
         )
 
+    
     def compute_exposed_residues(
         self,
-        processed: ProcessedTrajectory
+        processed, # Assumindo tipagem Omitida por brevidade
+        stride: int = 5
     ) -> np.array:
         """
         Calculate the exposed residues for an trajectory
 
         Args:
             processed: ProcessedTrajectory object.
+            stride (int): Passos para pular frames no cálculo de SASA (padrão 10).
 
         Returns:
-            An np array
+            An np array of global CA indices.
         """
 
         threshold = 0.2
         traj = processed.trajectory
 
+        # 1. Isola o core
         core_indices = traj.topology.select(f'resi {self.config.regions.CORE_START} to {self.config.regions.CORE_END}')
         core_traj = traj.atom_slice(core_indices)
 
-
-        sasa_per_res = md.shrake_rupley(core_traj, mode='residue')
+        # 2. GARGALO 1 RESOLVIDO: Striding
+        # Avaliar 1 a cada 10 frames (ou mais) é suficiente para a média e corta o tempo de CPU drasticamente.
+        sasa_per_res = md.shrake_rupley(core_traj[::stride], mode='residue')
         avg_sasa = np.mean(sasa_per_res, axis=0)
 
         exposed_local_idx = np.where(avg_sasa > threshold)[0]
-        exposed_res_seqs = [core_traj.topology.residue(i).resSeq for i in exposed_local_idx]
 
-        exposed_ca_indices = traj.topology.select(f"name CA and resSeq " + " ".join(map(str, exposed_res_seqs)))
+        # 3. GARGALO 2 RESOLVIDO: Mapeamento direto (O(N)) em vez de parse de string na topologia inteira
+        exposed_ca_indices = []
+        
+        for local_res_idx in exposed_local_idx:
+            res = core_traj.topology.residue(local_res_idx)
+            for atom in res.atoms:
+                if atom.name == 'CA':
+                    # O index do átomo local corresponde diretamente à posição no array core_indices
+                    global_idx = core_indices[atom.index]
+                    exposed_ca_indices.append(global_idx)
 
-        return exposed_ca_indices
-
+        return np.array(exposed_ca_indices)
     
 
     def compute_idr_to_core_mean_distance(
@@ -503,7 +515,7 @@ class ConformationalAnalyzer:
 
         traj = processed.trajectory
 
-        idr_ca_indices = md.select('name CA and resi {self.config.regions.N_TERMINAL_START} to {self.config.regions.N_TERMINAL_END}')
+        idr_ca_indices = traj.topology.select(f'name CA and resi {self.config.regions.N_TERMINAL_START} to {self.config.regions.N_TERMINAL_END}')
         
 
         # create the pairs [(idr_ca_indices, exposed_ca_indices)]

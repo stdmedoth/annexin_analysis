@@ -167,7 +167,7 @@ class AnnexinConfig:
         return self.create_variant(
             name="wt2",
             label="Wild Type 2",
-            folder="luis_felipe",
+            folder="out_native_2000",
             color_index=1
         )
 

@@ -385,16 +385,16 @@ class ConformationalVisualizer:
 
         return fig
 
-    def plot_contact_comparison(
+    def plot_contact_difference(
         self,
         comparison: ContactComparisonResult,
         mutation_position: Optional[int] = None,
-        title: str = "Contact Map Comparison",
+        title: str = "Contact Map Difference (Binary)",
         filename: Optional[str] = None,
         show: bool = True
     ) -> plt.Figure:
         """
-        Plot contact map comparison (binary and distance difference).
+        Plot binary contact map difference.
 
         Args:
             comparison: ContactComparisonResult object.
@@ -406,64 +406,43 @@ class ConformationalVisualizer:
         Returns:
             Matplotlib figure object.
         """
-        fig, axes = plt.subplots(1, 2, figsize=(20, 10))
+        fig, ax = plt.subplots(figsize=(10, 10))
 
-        # Plot 1: Binary contact difference
         sns.heatmap(
             comparison.contact_difference,
             cmap="RdBu_r",
             center=0,
             square=True,
-            ax=axes[0]
+            ax=ax
         )
-        axes[0].set_title(
-            "Contact Map Difference (Binary)\n(Blue: Gained | Red: Lost)",
-            fontsize=12
+        ax.set_title(
+            f"{title}\n(Blue: Gained | Red: Lost)",
+            fontsize=14
         )
-        axes[0].set_xlabel("Residue Index", fontsize=10)
-        axes[0].set_ylabel("Residue Index", fontsize=10)
-
-        # Plot 2: Distance difference (continuous)
-        vmax = np.abs(comparison.distance_difference).max() * 0.7
-        sns.heatmap(
-            comparison.distance_difference,
-            cmap="bwr",
-            center=0,
-            square=True,
-            vmin=-vmax,
-            vmax=vmax,
-            ax=axes[1]
-        )
-        axes[1].set_title(
-            "Mean Distance Difference (nm)\n(Red: Increased | Blue: Decreased)",
-            fontsize=12
-        )
-        axes[1].set_xlabel("Residue Index", fontsize=10)
-        axes[1].set_ylabel("Residue Index", fontsize=10)
+        ax.set_xlabel("Residue Index", fontsize=12)
+        ax.set_ylabel("Residue Index", fontsize=12)
 
         # Add annotations for mutation and N-terminal boundary
-        for ax in axes:
-            if mutation_position is not None:
-                ax.axhline(
-                    mutation_position, color="green", linestyle=":",
-                    alpha=0.7, linewidth=2
-                )
-                ax.axvline(
-                    mutation_position, color="green", linestyle=":",
-                    alpha=0.7, linewidth=2
-                )
-
-            # N-terminal boundary
+        if mutation_position is not None:
             ax.axhline(
-                self.regions.N_TERMINAL_END, color="black",
-                linewidth=1, alpha=0.5
+                mutation_position, color="green", linestyle=":",
+                alpha=0.7, linewidth=2
             )
             ax.axvline(
-                self.regions.N_TERMINAL_END, color="black",
-                linewidth=1, alpha=0.5
+                mutation_position, color="green", linestyle=":",
+                alpha=0.7, linewidth=2
             )
 
-        fig.suptitle(title, fontsize=14, y=1.02)
+        # N-terminal boundary
+        ax.axhline(
+            self.regions.N_TERMINAL_END, color="black",
+            linewidth=1, alpha=0.5
+        )
+        ax.axvline(
+            self.regions.N_TERMINAL_END, color="black",
+            linewidth=1, alpha=0.5
+        )
+
         plt.tight_layout()
 
         if filename:
@@ -473,6 +452,127 @@ class ConformationalVisualizer:
             plt.show()
 
         return fig
+
+    def plot_distance_difference(
+        self,
+        comparison: ContactComparisonResult,
+        mutation_position: Optional[int] = None,
+        title: str = "Mean Distance Difference",
+        filename: Optional[str] = None,
+        show: bool = True
+    ) -> plt.Figure:
+        """
+        Plot mean distance difference map.
+
+        Args:
+            comparison: ContactComparisonResult object.
+            mutation_position: Residue position of mutation (for annotation).
+            title: Plot title.
+            filename: Output filename. Not saved if None.
+            show: Whether to display the plot.
+
+        Returns:
+            Matplotlib figure object.
+        """
+        fig, ax = plt.subplots(figsize=(10, 10))
+
+        vmax = np.abs(comparison.distance_difference).max() * 0.7
+        sns.heatmap(
+            comparison.distance_difference,
+            cmap="bwr",
+            center=0,
+            square=True,
+            vmin=-vmax,
+            vmax=vmax,
+            ax=ax
+        )
+        ax.set_title(
+            f"{title} (nm)\n(Red: Increased | Blue: Decreased)",
+            fontsize=14
+        )
+        ax.set_xlabel("Residue Index", fontsize=12)
+        ax.set_ylabel("Residue Index", fontsize=12)
+
+        # Add annotations for mutation and N-terminal boundary
+        if mutation_position is not None:
+            ax.axhline(
+                mutation_position, color="green", linestyle=":",
+                alpha=0.7, linewidth=2
+            )
+            ax.axvline(
+                mutation_position, color="green", linestyle=":",
+                alpha=0.7, linewidth=2
+            )
+
+        # N-terminal boundary
+        ax.axhline(
+            self.regions.N_TERMINAL_END, color="black",
+            linewidth=1, alpha=0.5
+        )
+        ax.axvline(
+            self.regions.N_TERMINAL_END, color="black",
+            linewidth=1, alpha=0.5
+        )
+
+        plt.tight_layout()
+
+        if filename:
+            self._save_figure(fig, filename)
+
+        if show:
+            plt.show()
+
+        return fig
+
+    def plot_contact_comparison(
+        self,
+        comparison: ContactComparisonResult,
+        mutation_position: Optional[int] = None,
+        title: str = "Contact Map Comparison",
+        filename: Optional[str] = None,
+        show: bool = True
+    ) -> Tuple[plt.Figure, plt.Figure]:
+        """
+        Plot contact map comparison (binary and distance difference) as separate figures.
+
+        Args:
+            comparison: ContactComparisonResult object.
+            mutation_position: Residue position of mutation (for annotation).
+            title: Base title for plots.
+            filename: Base output filename. Will generate two files with suffixes.
+            show: Whether to display the plots.
+
+        Returns:
+            Tuple of two Matplotlib figure objects (contact_diff_fig, distance_diff_fig).
+        """
+        # Generate filenames for each plot
+        contact_filename = None
+        distance_filename = None
+        if filename:
+            base = Path(filename).stem
+            suffix = Path(filename).suffix
+            contact_filename = f"{base}_contact_diff{suffix}"
+            distance_filename = f"{base}_distance_diff{suffix}"
+
+        # Plot binary contact difference
+        fig_contact = self.plot_contact_difference(
+            comparison,
+            mutation_position=mutation_position,
+            title=f"{title} - Contact Difference",
+            filename=contact_filename,
+            show=show
+        )
+
+        # Plot distance difference
+        fig_distance = self.plot_distance_difference(
+            comparison,
+            mutation_position=mutation_position,
+            title=f"{title} - Distance Difference",
+            filename=distance_filename,
+            show=show
+        )
+
+        return fig_contact, fig_distance
 
     # ==================== Convergence Visualization ====================
 
@@ -602,12 +702,58 @@ class ConformationalVisualizer:
             self.regions.N_TERMINAL_START + len(distances)
         )
 
-        ax.plot(res_indices, distances, color='#2c3e50', linewidth=2)
-        ax.fill_between(res_indices, distances, alpha=0.2, color='#2c3e50')
+        ax.plot(res_indices, distances, color='blue', linewidth=2)
+        #ax.fill_between(res_indices, distances, alpha=0.2, color='#2c3e50')
 
         ax.set_xlabel('IDR Residue Index', fontsize=12)
         ax.set_ylabel(r'Mean Distance to Core ($nm$)', fontsize=12)
         ax.set_title(title, fontsize=14)
+        ax.grid(True, linestyle="--", alpha=0.6)
+        
+        # Limita o eixo X exatamente à região do N-terminal
+        ax.set_xlim(self.regions.N_TERMINAL_START, self.regions.N_TERMINAL_END)
+
+        plt.tight_layout()
+
+        if filename:
+            self._save_figure(fig, filename)
+        if show:
+            plt.show()
+
+        return fig
+    
+
+    def plot_core_idr_mean_distances_comparisson(
+        self,
+        label1: str,
+        label2: str,
+        distances1: np.ndarray,
+        distances2: np.ndarray,
+        title: str = "Mean Distances between IDR Residues to CORE",
+        filename: Optional[str] = None,
+        show: bool = True
+    ) -> plt.Figure:
+        """
+        Plot the mean distance of each IDR residue to the exposed core surface.
+        """
+        fig, ax = plt.subplots(figsize=(10, 5))
+
+        # Cria o eixo X baseado nos índices dos resíduos do IDR
+        res_indices = np.arange(
+            self.regions.N_TERMINAL_START,
+            self.regions.N_TERMINAL_START + len(distances1)
+        )
+
+        ax.plot(res_indices, distances1, label=label1, color='blue', linewidth=2)
+        ax.plot(res_indices, distances2, label=label2, color='red', linewidth=2)
+        
+        #ax.fill_between(res_indices, distances1, alpha=0.2, color='#2c3e50')
+
+        ax.set_xlabel('IDR Residue Index', fontsize=12)
+        ax.set_ylabel(r'Mean Distance to Core ($nm$)', fontsize=12)
+        ax.set_title(title, fontsize=14)
+        ax.legend(fontsize=10)
+
         ax.grid(True, linestyle="--", alpha=0.6)
         
         # Limita o eixo X exatamente à região do N-terminal
