@@ -456,7 +456,7 @@ class ConformationalAnalyzer:
     def compute_exposed_residues(
         self,
         processed, # Assumindo tipagem Omitida por brevidade
-        stride: int = 5
+        stride: int = 10
     ) -> np.array:
         """
         Calculate the exposed residues for an trajectory
@@ -497,6 +497,73 @@ class ConformationalAnalyzer:
         return np.array(exposed_ca_indices)
     
 
+    def compute_idr_to_exposed_core_dist(
+            self, 
+            processed, 
+            stride=10
+        ):
+        """
+        Computation of the mean distances between the exposed from CORE carbons and the IDR residue
+        Uses RSA
+        Args:
+            processed: ProcessedTrajectory object.
+            exposed_ca_indices: and np.array with the ca indices of the exposed core
+
+        Returns:
+            An np.array with the distances
+        """
+        traj = processed.trajectory[::stride]
+        
+        # 1. Áreas máximas (Valores de Miller et al. em nm^2)
+        sasa_max = {
+            'ALA': 1.13, 'ARG': 2.41, 'ASN': 1.58, 'ASP': 1.51, 'CYS': 1.40,
+            'GLN': 1.89, 'GLU': 1.83, 'GLY': 0.85, 'HIS': 1.94, 'ILE': 1.81,
+            'LEU': 1.93, 'LYS': 2.11, 'MET': 2.04, 'PHE': 2.18, 'PRO': 1.43,
+            'SER': 1.22, 'THR': 1.46, 'TRP': 2.59, 'TYR': 2.29, 'VAL': 1.60
+        }
+
+        # 2. Seleção das regiões
+        core_indices = traj.topology.select(f'resi {self.config.regions.CORE_START} to {self.config.regions.CORE_END}')
+        idr_indices = traj.topology.select(f'resi {self.config.regions.N_TERMINAL_START} to {self.config.regions.N_TERMINAL_END}')
+        
+        core_traj = traj.atom_slice(core_indices)
+        
+        # 3. Cálculo de SASA no Core isolado
+        sasa_per_res = md.shrake_rupley(core_traj, mode='residue') # nm^2
+        avg_sasa = np.mean(sasa_per_res, axis=0)
+        
+        exposed_ca_indices = []
+        for local_idx, sasa_val in enumerate(avg_sasa):
+            res = core_traj.topology.residue(local_idx)
+            rsa = sasa_val / sasa_max.get(res.name, 1.0)
+            
+            # Threshold de 20% de exposição relativa
+            if rsa > 0.05:
+                # Busca o CA deste resíduo específico
+                ca_atom = res.atom('CA')
+                if ca_atom:
+                    # Mapeia o índice local de volta para o global
+                    global_idx = core_indices[ca_atom.index]
+                    exposed_ca_indices.append(global_idx)
+
+        # 4. Cálculo da Distância (IDR res 36 até Core Exposto)
+        # Vamos pegar o CA do resíduo 36 (onde está a mutação)
+        target_res_idx = traj.topology.select('resid 36 and name CA')
+
+        print(f"Número de átomos por resíduo: {traj.topology.residue(200).n_atoms}")
+        print(f"DEBUG - SASA Máximo encontrado: {np.max(avg_sasa):.4f} nm^2")
+        print(f"DEBUG - RSA do primeiro resíduo: {avg_sasa[0] / sasa_max.get(core_traj.topology.residue(0).name, 1.0):.4f}")        
+        print(exposed_ca_indices)
+        # Distância par a par entre o resíduo 36 e todos os CAs expostos do core
+        # Retorna (n_frames, n_pairs)
+        distances = md.compute_distances(traj, np.array([[target_res_idx[0], core_idx] for core_idx in exposed_ca_indices]))
+        
+        # Distância mínima em cada frame (a aproximação mais próxima da IDR ao Core)
+        min_distances = np.min(distances, axis=1)
+        
+        return min_distances # Retorna array de distâncias por frame em nm
+    
+
     def compute_idr_to_core_mean_distance(
         self,
         processed: ProcessedTrajectory,
@@ -504,7 +571,7 @@ class ConformationalAnalyzer:
     ) -> np.array:
         """
         Computation of the mean distances between the exposed from CORE carbons and the IDR residue
-
+        Uses only SASA
         Args:
             processed: ProcessedTrajectory object.
             exposed_ca_indices: and np.array with the ca indices of the exposed core

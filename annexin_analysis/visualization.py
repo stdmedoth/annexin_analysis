@@ -100,6 +100,36 @@ class ConformationalVisualizer:
 
         return str(filepath)
 
+    def _save_data(
+        self,
+        data: np.array,
+        filename: str,
+        output_dir: Optional[str] = None
+    ) -> str:
+        """
+        Save figure to file.
+
+        Args:
+            data: Numpy array.
+            filename: Output filename.
+            output_dir: Directory to save in. Uses config default if None.
+
+        Returns:
+            Full path to saved file.
+        """
+        if output_dir is None:
+            output_dir = self.config.output_dir
+
+        output_path = Path(output_dir)
+        output_path.mkdir(parents=True, exist_ok=True)
+
+        filepath = output_path / filename
+        
+        np.savetxt(filepath, data, delimiter=';')
+        print(f"Data saved: {filepath}")
+
+        return str(filepath)
+
     # ==================== RMSF Visualizations ====================
 
     def plot_rmsf(
@@ -757,7 +787,7 @@ class ConformationalVisualizer:
         ax.grid(True, linestyle="--", alpha=0.6)
         
         # Limita o eixo X exatamente à região do N-terminal
-        ax.set_xlim(self.regions.N_TERMINAL_START, self.regions.N_TERMINAL_END)
+        ax.set_xlim(self.regions.N_TERMINAL_START, self.regions.N_TERMINAL_START + len(distances1))
 
         plt.tight_layout()
 
@@ -808,6 +838,22 @@ class ConformationalVisualizer:
             plt.show()
 
         return fig
+    
+
+    def dump_data(
+        self,
+        data: np.ndarray,
+        filename: Optional[str] = None,
+    ) -> np.array:
+        """
+            Dump numpy array data to results
+        """
+
+        if filename:
+            self._save_data(data, filename)
+        
+
+        return data
     
 
 
