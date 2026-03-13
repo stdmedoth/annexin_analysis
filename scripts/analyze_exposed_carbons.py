@@ -43,7 +43,7 @@ def analyze_exposed_carbons():
 
     # Process trajectory
     print("Loading trajectory...")
-    variant_traj = loader.process_variant(variant, extract_ca_atoms=False)
+    variant_traj = loader.process_variant(variant, extract_ca_atoms=False, convert_units=False)
 
     print(f"  Total frames: {variant_traj.n_frames}")
 

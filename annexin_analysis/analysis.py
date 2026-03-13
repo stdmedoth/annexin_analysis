@@ -455,8 +455,8 @@ class ConformationalAnalyzer:
     
     def compute_exposed_residues(
         self,
-        processed, # Assumindo tipagem Omitida por brevidade
-        stride: int = 10
+        processed : ProcessedTrajectory,
+        stride: int = 1
     ) -> np.array:
         """
         Calculate the exposed residues for an trajectory
@@ -469,7 +469,7 @@ class ConformationalAnalyzer:
             An np array of global CA indices.
         """
 
-        threshold = 0.2
+        threshold = 0.3
         traj = processed.trajectory
 
         # 1. Isola o core
@@ -499,8 +499,8 @@ class ConformationalAnalyzer:
 
     def compute_idr_to_exposed_core_dist(
             self, 
-            processed, 
-            stride=10
+            processed,
+            frames = [0]
         ):
         """
         Computation of the mean distances between the exposed from CORE carbons and the IDR residue
@@ -512,7 +512,7 @@ class ConformationalAnalyzer:
         Returns:
             An np.array with the distances
         """
-        traj = processed.trajectory[::stride]
+        traj = processed.trajectory[frames]
         
         # 1. Áreas máximas (Valores de Miller et al. em nm^2)
         sasa_max = {
@@ -538,7 +538,7 @@ class ConformationalAnalyzer:
             rsa = sasa_val / sasa_max.get(res.name, 1.0)
             
             # Threshold de 20% de exposição relativa
-            if rsa > 0.05:
+            if rsa > 0.2: # troquei o valor para conseguir pegar mais carbonos (TODO: usar cadeia lateral)
                 # Busca o CA deste resíduo específico
                 ca_atom = res.atom('CA')
                 if ca_atom:

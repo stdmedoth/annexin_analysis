@@ -47,7 +47,7 @@ def compute_idr_to_core_distance_comparison():
 
     # Process trajectory
     print("Loading trajectory...")
-    variant1_traj = loader.process_variant(variant1, extract_ca_atoms=False)
+    variant1_traj = loader.process_variant(variant1, extract_ca_atoms=False, convert_units=False)
 
     print(f"  Total frames: {variant1_traj.n_frames}")
 

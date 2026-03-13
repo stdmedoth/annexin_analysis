@@ -1,7 +1,5 @@
 .venv
-pdbs
 MutationConformationsBioEmu
 test_pymol
-1000_samples
-2000_samples
+samples
 annexin_analysis/__pycache__

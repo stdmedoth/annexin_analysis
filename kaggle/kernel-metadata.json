@@ -1,0 +1,14 @@
+{
+  "id": "calistu/notebook-annexyn-a11-bioemu",
+  "title": "Notebook Annexyn A11 Bioemu",
+  "code_file": "notebook-annexyn-a11-bioemu.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": "true",
+  "enable_gpu": "true",
+  "enable_tpu": "false",
+  "enable_internet": "true",
+  "dataset_sources": ["calistu/anexina-frames-1773430189"],
+  "kernel_sources": [],
+  "competition_sources": []
+}

@@ -37,7 +37,7 @@ def main():
     visualizer = ConformationalVisualizer(config)
 
     # Define variants to compare
-    variants = [config.wt_variant, config.wt2_variant]
+    variants = [config.wt_variant, config.p36r_variant]
 
     print("RMSF Comparison: WT vs P36R")
     print("=" * 40)
@@ -55,8 +55,8 @@ def main():
     print("\nGenerating comparison plot...")
     visualizer.plot_rmsf_comparison(
         labeled_results,
-        title="RMSF Comparison: Wild-Type vs Wild-Type2 - Annexin A11",
-        filename="rmsf_comparison_wt_wt2.png"
+        title="RMSF Comparison: Wild-Type vs P36R - Annexin A11",
+        filename="rmsf_comparison_wt_p36r.png"
     )
 
     # Print summary statistics
@@ -66,7 +66,7 @@ def main():
 
     if len(rmsf_results) >= 2:
         wt_mean = rmsf_results["wt"].mean_rmsf
-        p36r_mean = rmsf_results["wt2"].mean_rmsf
+        p36r_mean = rmsf_results["p36r"].mean_rmsf
         diff = p36r_mean - wt_mean
         diff_percent = (diff / wt_mean) * 100
 

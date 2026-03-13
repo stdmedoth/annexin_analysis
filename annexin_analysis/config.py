@@ -81,7 +81,7 @@ class AnnexinConfig:
     """
 
     today = datetime.today().strftime('%Y-%m-%d')
-    base_path: str = "1000_samples/MutationConformationsBioEmu"
+    base_path: str = "samples/1000_samples/MutationConformationsBioEmu"
     output_dir: str = f"results/{today}"
     regions: ProteinRegions = field(default_factory=ProteinRegions)
 
@@ -157,7 +157,7 @@ class AnnexinConfig:
         return self.create_variant(
             name="wt",
             label="Wild Type",
-            folder="out_native",
+            folder="complete_side_chain",
             color_index=0
         )
 

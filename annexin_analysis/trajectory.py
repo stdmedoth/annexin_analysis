@@ -11,6 +11,8 @@ from typing import Optional, Tuple, Union
 import numpy as np
 import mdtraj as md
 
+from sklearn.cluster import KMeans
+
 from .config import AnnexinConfig, ProteinRegions, VariantConfig, DEFAULT_CONFIG
 
 
@@ -252,6 +254,54 @@ class TrajectoryLoader:
         )
 
         return wt_processed, mutant_processed
+    
+    def create_representative_cluster(
+        self,
+        variant: VariantConfig,
+        output_dir: Union[str, Path],
+    ) -> Tuple[KMeans, np.array]:
+        if output_dir is None:
+            output_dir = self.config.output_dir
+        
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        
+        processed = self.process_variant(variant=variant)
+
+        # Shape goes from (n_frames, n_atoms, 3) to (n_frames, n_atoms * 3)
+        features = processed.trajectory.xyz.reshape(processed.trajectory.n_frames, -1)
+
+        # Define the number of clusters (macrostates) you want to sample
+        n_clusters = 5 
+        kmeans = KMeans(n_clusters=n_clusters, random_state=42)
+        labels = kmeans.fit_predict(features)
+
+        representative_frames = []
+        for i in range(n_clusters):
+            # Get indices of all frames in this cluster
+            cluster_indices = np.where(labels == i)[0]
+            
+            # Calculate distance of these frames to the cluster center
+            center = kmeans.cluster_centers_[i]
+            distances = np.linalg.norm(features[cluster_indices] - center, axis=1)
+            
+            # Pick the frame with the minimum distance to the center
+            closest_idx = cluster_indices[np.argmin(distances)]
+            representative_frames.append(closest_idx)
+
+        not_processed = self.process_variant(variant=variant, extract_ca_atoms=False)
+
+        # Extract and save the full-atom representative frames for FlowPacker
+        for i, frame_idx in enumerate(representative_frames):
+            # We slice the ORIGINAL trajectory (with all atoms), not just CA
+            rep_traj = not_processed.trajectory[frame_idx]
+            
+            pdb_path = output_dir / f"representative_cluster_{i}_topology.pdb"
+            rep_traj.save_pdb(pdb_path)
+
+        return kmeans, labels 
+
 
     def save_aligned_trajectory(
         self,
@@ -308,6 +358,27 @@ class TrajectoryLoader:
         self.align_to_core(ref_ca)
 
         return ref_ca
+    
+
+    def export_frames(
+        self,
+        variant: VariantConfig,
+        output_dir: Union[str, Path],
+    ):
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        processed = self.process_variant(
+            variant=variant, 
+            extract_ca_atoms=False,
+            convert_units=False,
+        )
+
+        trajs = processed.trajectory[::10]
+        for frame, traj in enumerate(trajs):
+            pdb_path = output_dir / f"frame_{frame}.pdb"
+            traj.save_pdb(pdb_path)
+
 
 
 class RegionalTrajectoryLoader(TrajectoryLoader):
